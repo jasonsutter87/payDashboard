@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { usePlaidLink } from 'react-plaid-link';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 
@@ -14,59 +15,88 @@ export function PlaidLinkButton({
   children = 'Connect Bank',
   variant = 'default',
 }: PlaidLinkButtonProps) {
+  const [linkToken, setLinkToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleConnect = useCallback(async () => {
-    setLoading(true);
+  // Fetch link token on mount
+  useEffect(() => {
+    async function fetchLinkToken() {
+      try {
+        const response = await fetch('/api/plaid/create-link-token', {
+          method: 'POST',
+        });
 
-    try {
-      // Get link token from our API
-      const response = await fetch('/api/plaid/create-link-token', {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create link token');
+        if (response.ok) {
+          const { link_token } = await response.json();
+          setLinkToken(link_token);
+        }
+      } catch (error) {
+        console.error('Error fetching link token:', error);
       }
-
-      const { link_token } = await response.json();
-
-      // Dynamically import Plaid Link
-      const { usePlaidLink } = await import('react-plaid-link');
-
-      // For now, we'll use a simple approach
-      // In production, you'd use the usePlaidLink hook properly
-      // This is a simplified version for the scaffold
-
-      // Store the link token and redirect to a page that handles Plaid Link
-      sessionStorage.setItem('plaid_link_token', link_token);
-
-      // Open Plaid Link in a new flow
-      // In a real implementation, you'd use the usePlaidLink hook
-      // For now, we'll show an alert with instructions
-      alert(
-        'Plaid Link token created! In production, this would open the Plaid Link UI. ' +
-          'Token: ' +
-          link_token.substring(0, 20) +
-          '...'
-      );
-
-      router.refresh();
-    } catch (error) {
-      console.error('Error connecting bank:', error);
-      alert('Failed to initialize bank connection. Please try again.');
-    } finally {
-      setLoading(false);
     }
-  }, [router]);
+
+    fetchLinkToken();
+  }, []);
+
+  const onSuccess = useCallback(
+    async (publicToken: string, metadata: any) => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/plaid/exchange-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            public_token: publicToken,
+            metadata,
+          }),
+        });
+
+        if (response.ok) {
+          router.refresh();
+        } else {
+          console.error('Failed to exchange token');
+        }
+      } catch (error) {
+        console.error('Error exchanging token:', error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [router]
+  );
+
+  const { open, ready } = usePlaidLink({
+    token: linkToken,
+    onSuccess,
+    onExit: (error) => {
+      if (error) {
+        console.error('Plaid Link exited with error:', error);
+      }
+    },
+  });
+
+  const handleClick = () => {
+    if (ready) {
+      open();
+    }
+  };
 
   return (
-    <Button onClick={handleConnect} disabled={loading} variant={variant}>
+    <Button
+      onClick={handleClick}
+      disabled={!ready || loading}
+      variant={variant}
+    >
       {loading ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           Connecting...
+        </>
+      ) : !ready ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Loading...
         </>
       ) : (
         children

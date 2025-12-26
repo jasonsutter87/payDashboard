@@ -15,7 +15,6 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Projects', href: '/dashboard/projects', icon: FolderKanban },
   { name: 'Payouts', href: '/dashboard/payouts', icon: Receipt },
-  { name: 'Bank', href: '/dashboard/settings', icon: Landmark },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
