@@ -27,6 +27,7 @@
     "plaid": "^40.0.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-plaid-link": "^4.1.1",
     "sonner": "^2.0.7",
     "stripe": "^20.1.0",
     "tailwind-merge": "^3.4.0",
